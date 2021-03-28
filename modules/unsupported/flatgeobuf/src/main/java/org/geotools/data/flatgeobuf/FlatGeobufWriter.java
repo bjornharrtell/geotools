@@ -25,7 +25,7 @@ import org.wololo.flatgeobuf.geotools.FeatureConversions;
 import org.wololo.flatgeobuf.geotools.FeatureTypeConversions;
 import org.wololo.flatgeobuf.geotools.HeaderMeta;
 
-public class FlatgeobufWriter {
+public class FlatGeobufWriter {
 
     private final OutputStream outputStream;
 
@@ -33,7 +33,7 @@ public class FlatgeobufWriter {
 
     private FlatBufferBuilder builder;
 
-    public FlatgeobufWriter(OutputStream outputStream, FlatBufferBuilder builder) {
+    public FlatGeobufWriter(OutputStream outputStream, FlatBufferBuilder builder) {
         this.outputStream = outputStream;
         this.builder = builder;
     }

@@ -48,7 +48,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
-public class FlatgeobufDirectoryDataStoreTest {
+public class FlatGeobufDirectoryDataStoreTest {
 
     @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 

@@ -33,13 +33,13 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.wololo.flatgeobuf.geotools.FlatBuffers;
 
-public class FlatgeobufFeatureWriter implements FeatureWriter<SimpleFeatureType, SimpleFeature> {
+public class FlatGeobufFeatureWriter implements FeatureWriter<SimpleFeatureType, SimpleFeature> {
 
     private ContentState state;
 
     private File temp;
 
-    private FlatgeobufFeatureReader delegate;
+    private FlatGeobufFeatureReader delegate;
 
     private boolean appending = false;
 
@@ -49,29 +49,32 @@ public class FlatgeobufFeatureWriter implements FeatureWriter<SimpleFeatureType,
 
     private File file;
 
-    private FlatgeobufWriter writer;
+    private FlatGeobufWriter writer;
 
     private OutputStream outputStream;
 
     private FlatBufferBuilder builder;
 
-    public FlatgeobufFeatureWriter(ContentState state, Query query) throws IOException {
+    public FlatGeobufFeatureWriter(ContentState state, Query query) throws IOException {
         this.state = state;
         String typeName = query.getTypeName();
         DataStore dataStore = state.getEntry().getDataStore();
-        if (dataStore instanceof FlatgeobufDirectoryDataStore) {
-            this.file = ((FlatgeobufDirectoryDataStore) dataStore).getDataStore(typeName).getFile();
+        FlatGeobufDataStore flatGeobufDataStore;
+        if (dataStore instanceof FlatGeobufDirectoryDataStore) {
+            flatGeobufDataStore = ((FlatGeobufDirectoryDataStore) dataStore).getDataStore(typeName);
+            this.file = flatGeobufDataStore.getFile();
         } else {
-            this.file = ((FlatgeobufDataStore) dataStore).getFile();
+            flatGeobufDataStore = (FlatGeobufDataStore) dataStore;
+            this.file = flatGeobufDataStore.getFile();
         }
         File directory = file.getParentFile();
         this.temp =
                 File.createTempFile(typeName + System.currentTimeMillis(), "flatgeobuf", directory);
         this.outputStream = new FileOutputStream(this.temp);
         this.builder = FlatBuffers.newBuilder(4096);
-        this.writer = new FlatgeobufWriter(this.outputStream, this.builder);
+        this.writer = new FlatGeobufWriter(this.outputStream, this.builder);
         this.writer.writeFeatureType(state.getFeatureType());
-        this.delegate = new FlatgeobufFeatureReader(state, query);
+        this.delegate = new FlatGeobufFeatureReader(state, query);
     }
 
     @Override
