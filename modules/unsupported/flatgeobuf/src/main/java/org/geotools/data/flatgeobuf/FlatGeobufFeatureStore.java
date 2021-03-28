@@ -31,18 +31,18 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
 
-public class FlatgeobufFeatureStore extends ContentFeatureStore {
+public class FlatGeobufFeatureStore extends ContentFeatureStore {
 
-    public FlatgeobufFeatureStore(ContentEntry entry, Query query) {
+    public FlatGeobufFeatureStore(ContentEntry entry, Query query) {
         super(entry, query);
     }
 
-    FlatgeobufFeatureSource delegate =
-            new FlatgeobufFeatureSource(entry, query) {
+    FlatGeobufFeatureSource delegate =
+            new FlatGeobufFeatureSource(entry, query) {
                 @Override
                 public void setTransaction(Transaction transaction) {
                     super.setTransaction(transaction);
-                    FlatgeobufFeatureStore.this.setTransaction(transaction);
+                    FlatGeobufFeatureStore.this.setTransaction(transaction);
                 }
             };
 
@@ -55,8 +55,8 @@ public class FlatgeobufFeatureStore extends ContentFeatureStore {
     }
 
     @Override
-    protected FlatgeobufFeatureWriter getWriterInternal(Query query, int flags) throws IOException {
-        return new FlatgeobufFeatureWriter(getState(), query);
+    protected FlatGeobufFeatureWriter getWriterInternal(Query query, int flags) throws IOException {
+        return new FlatGeobufFeatureWriter(getState(), query);
     }
 
     @Override
@@ -86,7 +86,7 @@ public class FlatgeobufFeatureStore extends ContentFeatureStore {
     }
 
     @Override
-    public FlatgeobufDataStore getDataStore() {
+    public FlatGeobufDataStore getDataStore() {
         return delegate.getDataStore();
     }
 

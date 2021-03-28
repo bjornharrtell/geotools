@@ -16,77 +16,93 @@
  */
 package org.geotools.data.flatgeobuf;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import org.geotools.data.DataStore;
 import org.geotools.data.FeatureReader;
 import org.geotools.data.Query;
 import org.geotools.data.store.ContentEntry;
 import org.geotools.data.store.ContentFeatureSource;
 import org.geotools.geometry.jts.ReferencedEnvelope;
+import org.geotools.referencing.CRS;
+import org.locationtech.jts.geom.Envelope;
 import org.opengis.feature.FeatureVisitor;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.filter.Filter;
+import org.opengis.referencing.FactoryException;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.wololo.flatgeobuf.HeaderMeta;
 
-public class FlatgeobufFeatureSource extends ContentFeatureSource {
+public class FlatGeobufFeatureSource extends ContentFeatureSource {
 
-    public FlatgeobufFeatureSource(ContentEntry entry, Query query) {
+    public FlatGeobufFeatureSource(ContentEntry entry, Query query) {
         super(entry, query);
     }
 
     @Override
-    public FlatgeobufDataStore getDataStore() {
+    public FlatGeobufDataStore getDataStore() {
         DataStore dataStore = super.getDataStore();
-        if (dataStore instanceof FlatgeobufDirectoryDataStore) {
-            return ((FlatgeobufDirectoryDataStore) dataStore).getDataStore(entry.getTypeName());
+        if (dataStore instanceof FlatGeobufDirectoryDataStore) {
+            return ((FlatGeobufDirectoryDataStore) dataStore).getDataStore(entry.getTypeName());
         } else {
-            return (FlatgeobufDataStore) dataStore;
+            return (FlatGeobufDataStore) dataStore;
         }
     }
 
     @Override
     protected FeatureReader<SimpleFeatureType, SimpleFeature> getReaderInternal(Query query)
             throws IOException {
-        return new FlatgeobufFeatureReader(getState(), query);
+        return new FlatGeobufFeatureReader(getState(), query, getDataStore().getHeaderMeta());
     }
 
     @Override
     protected ReferencedEnvelope getBoundsInternal(Query query) throws IOException {
-        ReferencedEnvelope referencedEnvelope = null;
-        try (InputStream in = new FileInputStream(getDataStore().getFile())) {
-            FlatgeobufReader reader =
-                    new FlatgeobufReader(
-                            getState().getFeatureType().getTypeName(),
-                            getState().getFeatureType().getGeometryDescriptor().getLocalName(),
-                            in);
+        if (query.getFilter() != Filter.INCLUDE) return null;
+
+        HeaderMeta headerMeta = getDataStore().getHeaderMeta();
+        CoordinateReferenceSystem crs;
+        try {
+            crs = headerMeta.srid > 0 ? CRS.decode("EPSG:" + headerMeta.srid) : null;
+        } catch (FactoryException e) {
+            throw new IOException(e);
+        }
+        Envelope env = headerMeta.envelope;
+        if (env != null) return new ReferencedEnvelope(env, crs);
+
+        // NOTE: header does not contain envelope will enumerate features to calculate
+        try (FlatGeobufFeatureReader reader = (FlatGeobufFeatureReader) getReaderInternal(query)) {
             SimpleFeature feature;
-            while ((feature = reader.getNextFeature()) != null) {
+            ReferencedEnvelope referencedEnvelope = null;
+            while (reader.hasNext()) {
+                feature = reader.next();
                 if (referencedEnvelope == null) {
                     referencedEnvelope = new ReferencedEnvelope(feature.getBounds());
                 } else {
                     referencedEnvelope.expandToInclude(new ReferencedEnvelope(feature.getBounds()));
                 }
             }
+            return referencedEnvelope;
         }
-        return referencedEnvelope;
     }
 
     @Override
     protected int getCountInternal(Query query) throws IOException {
         int count = -1;
-        try (InputStream in = new FileInputStream(getDataStore().getFile())) {
-            FlatgeobufReader reader =
-                    new FlatgeobufReader(
-                            getState().getFeatureType().getTypeName(),
-                            getState().getFeatureType().getGeometryDescriptor().getLocalName(),
-                            in);
+        if (query.getFilter() != Filter.INCLUDE) return count;
+
+        count = (int) getDataStore().getHeaderMeta().featuresCount;
+
+        if (count > 0) return count;
+
+        // NOTE: header does not contain feature count will enumerate features to calculate
+        try (FlatGeobufFeatureReader reader = (FlatGeobufFeatureReader) getReaderInternal(query)) {
             count = 0;
-            while (reader.getNextFeature() != null) {
+            while (reader.hasNext()) {
+                reader.next();
                 count++;
             }
+            return count;
         }
-        return count;
     }
 
     @Override

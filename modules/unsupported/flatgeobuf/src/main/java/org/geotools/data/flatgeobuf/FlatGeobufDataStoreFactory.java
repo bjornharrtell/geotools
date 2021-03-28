@@ -26,28 +26,28 @@ import org.geotools.data.DataStoreFactorySpi;
 import org.geotools.util.KVP;
 import org.geotools.util.logging.Logging;
 
-public class FlatgeobufDataStoreFactory implements DataStoreFactorySpi {
+public class FlatGeobufDataStoreFactory implements DataStoreFactorySpi {
 
-    private static final Logger LOGGER = Logging.getLogger(FlatgeobufDataStoreFactory.class);
+    private static final Logger LOGGER = Logging.getLogger(FlatGeobufDataStoreFactory.class);
 
     public static final Param FILE_PARAM =
             new Param(
                     "flatgeobuf-file",
                     File.class,
-                    "The Flatgeobuf file or directory",
+                    "The FlatGeobuf file or directory",
                     true,
                     null,
                     new KVP(Param.EXT, "fgb"));
 
-    public FlatgeobufDataStoreFactory() {}
+    public FlatGeobufDataStoreFactory() {}
 
     @Override
     public DataStore createDataStore(Map<String, ?> map) throws IOException {
         File file = (File) FILE_PARAM.lookUp(map);
         if (file.isDirectory()) {
-            return new FlatgeobufDirectoryDataStore(file);
+            return new FlatGeobufDirectoryDataStore(file);
         } else {
-            return new FlatgeobufDataStore(file);
+            return new FlatGeobufDataStore(file);
         }
     }
 
@@ -55,23 +55,23 @@ public class FlatgeobufDataStoreFactory implements DataStoreFactorySpi {
     public DataStore createNewDataStore(Map<String, ?> map) throws IOException {
         File file = (File) FILE_PARAM.lookUp(map);
         if (file.isDirectory()) {
-            return new FlatgeobufDirectoryDataStore(file);
+            return new FlatGeobufDirectoryDataStore(file);
         } else {
             if (file.exists()) {
                 LOGGER.warning("File already exists: " + file);
             }
-            return new FlatgeobufDataStore(file);
+            return new FlatGeobufDataStore(file);
         }
     }
 
     @Override
     public String getDisplayName() {
-        return "Flatgeobuf";
+        return "FlatGeobuf";
     }
 
     @Override
     public String getDescription() {
-        return "A DataStore for reading and writing Flatgeobuf files";
+        return "A DataStore for reading and writing FlatGeobuf files";
     }
 
     @Override
