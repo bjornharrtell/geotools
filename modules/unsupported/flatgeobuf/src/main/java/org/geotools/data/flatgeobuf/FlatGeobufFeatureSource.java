@@ -107,7 +107,7 @@ public class FlatGeobufFeatureSource extends ContentFeatureSource {
 
     @Override
     protected SimpleFeatureType buildFeatureType() throws IOException {
-        return getDataStore().getFeatureType();
+        return getDataStore().getFeatureType(this.getEntry().getName());
     }
 
     @Override

@@ -18,35 +18,48 @@ package org.geotools.data.flatgeobuf;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import org.geotools.data.FeatureReader;
+import org.geotools.data.FeatureWriter;
+import org.geotools.data.FileDataStore;
 import org.geotools.data.Query;
+import org.geotools.data.Transaction;
 import org.geotools.data.store.ContentDataStore;
 import org.geotools.data.store.ContentEntry;
 import org.geotools.data.store.ContentFeatureSource;
 import org.geotools.feature.NameImpl;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
+import org.opengis.filter.Filter;
 import org.wololo.flatgeobuf.ColumnMeta;
 import org.wololo.flatgeobuf.GeometryConversions;
 import org.wololo.flatgeobuf.HeaderMeta;
 
-public class FlatGeobufDataStore extends ContentDataStore {
+public class FlatGeobufDataStore extends ContentDataStore implements FileDataStore {
 
     private File file;
     private HeaderMeta headerMeta;
     private String typeName;
-    private SimpleFeatureType createFeatureType;
 
-    public FlatGeobufDataStore(File file) {
-        this.file = file;
+    public FlatGeobufDataStore(URL url) throws IOException {
+        try {
+            this.file = Paths.get(url.toURI()).toFile();
+            this.typeName = removeFileExtension(file.getName(), true);
+        } catch (URISyntaxException e) {
+            throw new IOException(e);
+        }
     }
 
     protected static String removeFileExtension(String filename, boolean removeAllExtensions) {
@@ -56,11 +69,6 @@ public class FlatGeobufDataStore extends ContentDataStore {
     }
 
     protected HeaderMeta getHeaderMeta() throws IOException {
-        String fileName = removeFileExtension(file.getName(), true);
-        if (!file.exists() || file.length() == 0) {
-            typeName = fileName;
-            return null;
-        }
         if (headerMeta == null) {
             try (FileChannel fileChannel =
                     (FileChannel)
@@ -71,14 +79,6 @@ public class FlatGeobufDataStore extends ContentDataStore {
                 bb.order(ByteOrder.LITTLE_ENDIAN);
                 this.headerMeta = HeaderMeta.read(bb);
             }
-            String name = this.headerMeta.name;
-            if (name == null || name.isEmpty()) {
-                LOGGER.info("No name in header will use file name " + fileName);
-                this.typeName = fileName;
-            } else {
-                LOGGER.info("Using name found in header as typeName " + name);
-                this.typeName = name;
-            }
         }
         return headerMeta;
     }
@@ -87,43 +87,42 @@ public class FlatGeobufDataStore extends ContentDataStore {
         return file;
     }
 
-    protected SimpleFeatureType getFeatureType() throws IOException {
+    protected SimpleFeatureType getFeatureType(Name name) throws IOException {
         getHeaderMeta();
-        if (headerMeta != null) {
-            SimpleFeatureTypeBuilder ftb = new SimpleFeatureTypeBuilder();
-            ftb.setName(typeName);
-            ftb.setAbstract(false);
-            ftb.add("geom", GeometryConversions.getGeometryClass(headerMeta.geometryType));
-            for (ColumnMeta columnMeta : headerMeta.columns)
-                ftb.add(columnMeta.name, columnMeta.getBinding());
-            SimpleFeatureType featureType = ftb.buildFeatureType();
-            return featureType;
-        } else if (createFeatureType != null) {
-            return createFeatureType;
-        }
-        throw new RuntimeException("Could not get FeatureType");
+        SimpleFeatureTypeBuilder ftb = new SimpleFeatureTypeBuilder();
+        ftb.setName(name);
+        ftb.setAbstract(false);
+        ftb.add("geom", GeometryConversions.getGeometryClass(headerMeta.geometryType));
+        for (ColumnMeta columnMeta : headerMeta.columns)
+            ftb.add(columnMeta.name, columnMeta.getBinding());
+        SimpleFeatureType featureType = ftb.buildFeatureType();
+        return featureType;
     }
 
     @Override
     protected List<Name> createTypeNames() throws IOException {
+        return Collections.singletonList(getTypeName());
+    }
+
+    Name getTypeName() throws IOException {
         getHeaderMeta();
-        Name name = new NameImpl(typeName);
-        return Collections.singletonList(name);
+        return new NameImpl(namespaceURI, typeName);
     }
 
     @Override
     public void createSchema(SimpleFeatureType featureType) {
-        this.createFeatureType = featureType;
+        throw new RuntimeException("Cannot create schema");
     }
 
     @Override
-    protected ContentFeatureSource createFeatureSource(ContentEntry contentEntry)
-            throws IOException {
-        if (!file.exists() || file.canWrite()) {
-            return new FlatGeobufFeatureStore(contentEntry, Query.ALL);
-        } else {
-            return new FlatGeobufFeatureSource(contentEntry, Query.ALL);
-        }
+    protected ContentFeatureSource createFeatureSource(ContentEntry entry) throws IOException {
+        return getFeatureSource();
+    }
+
+    @Override
+    public ContentFeatureSource getFeatureSource() throws IOException {
+        ContentEntry entry = ensureEntry(getTypeName());
+        return new FlatGeobufFeatureSource(entry, Query.ALL);
     }
 
     @Override
@@ -138,5 +137,39 @@ public class FlatGeobufDataStore extends ContentDataStore {
                     "Can't delete " + file.getAbsolutePath() + " because it doesn't exist!");
         }
         file.delete();
+    }
+
+    @Override
+    public SimpleFeatureType getSchema() throws IOException {
+        return getSchema(getTypeName());
+    }
+
+    @Override
+    public void updateSchema(SimpleFeatureType featureType) throws IOException {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public FeatureReader<SimpleFeatureType, SimpleFeature> getFeatureReader() throws IOException {
+        return super.getFeatureReader(
+                new Query(getTypeName().getLocalPart()), Transaction.AUTO_COMMIT);
+    }
+
+    @Override
+    public FeatureWriter<SimpleFeatureType, SimpleFeature> getFeatureWriter(
+            Filter filter, Transaction transaction) throws IOException {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public FeatureWriter<SimpleFeatureType, SimpleFeature> getFeatureWriter(Transaction transaction)
+            throws IOException {
+        throw new RuntimeException("Not implemented");
+    }
+
+    @Override
+    public FeatureWriter<SimpleFeatureType, SimpleFeature> getFeatureWriterAppend(
+            Transaction transaction) throws IOException {
+        throw new RuntimeException("Not implemented");
     }
 }

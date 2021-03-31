@@ -19,8 +19,9 @@ package org.geotools.data.flatgeobuf;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import org.geotools.data.store.ContentDataStore;
 import org.geotools.data.store.ContentEntry;
@@ -33,11 +34,8 @@ public class FlatGeobufDirectoryDataStore extends ContentDataStore {
 
     private File directory;
 
-    private HashMap<String, SimpleFeatureType> createFeatureTypes;
-
     public FlatGeobufDirectoryDataStore(File directory) {
         this.directory = directory;
-        createFeatureTypes = new HashMap<>();
     }
 
     protected File getDirectory() {
@@ -64,12 +62,16 @@ public class FlatGeobufDirectoryDataStore extends ContentDataStore {
 
     protected FlatGeobufDataStore getDataStore(String name) {
         File file = new File(directory, name + ".fgb");
-        FlatGeobufDataStore store = new FlatGeobufDataStore(file);
-        if (createFeatureTypes.containsKey(name) && !file.exists()) {
-            SimpleFeatureType featureType = createFeatureTypes.get(name);
-            store.createSchema(featureType);
+        URL url;
+        try {
+            url = file.toURI().toURL();
+            FlatGeobufDataStore store = new FlatGeobufDataStore(url);
+            return store;
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        return store;
     }
 
     @Override
@@ -86,17 +88,15 @@ public class FlatGeobufDirectoryDataStore extends ContentDataStore {
         if (files != null) {
             for (File file : files) {
                 String name = file.getName();
-                if (createFeatureTypes.containsKey(name)) createFeatureTypes.remove(name);
                 names.add(new NameImpl(name.substring(0, name.lastIndexOf('.'))));
             }
         }
-        for (String createName : createFeatureTypes.keySet()) names.add(new NameImpl(createName));
         return names;
     }
 
     @Override
     public void createSchema(SimpleFeatureType featureType) throws IOException {
-        createFeatureTypes.put(featureType.getTypeName(), featureType);
+        throw new RuntimeException("Cannot create schema");
     }
 
     @Override
