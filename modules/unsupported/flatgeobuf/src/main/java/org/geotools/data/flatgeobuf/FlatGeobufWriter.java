@@ -16,6 +16,7 @@
  */
 package org.geotools.data.flatgeobuf;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import java.io.IOException;
 import java.io.OutputStream;
 import org.opengis.feature.simple.SimpleFeature;
@@ -32,11 +33,11 @@ public class FlatGeobufWriter {
 
     public FlatGeobufWriter(OutputStream outputStream, FlatBufferBuilder builder) {
         this.outputStream = outputStream;
+        this.builder = builder;
     }
 
     public void writeFeature(SimpleFeature feature) throws IOException {
-        byte[] bytes = FeatureConversions.serialize(feature, this.headerMeta);
-        this.outputStream.write(bytes);
+        FeatureConversions.serialize(feature, this.headerMeta, this.outputStream, this.builder);
     }
 
     public void writeFeatureType(SimpleFeatureType featureType) throws IOException {
